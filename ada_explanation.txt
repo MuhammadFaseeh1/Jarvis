@@ -1,0 +1,433 @@
+Line 1: """ -> Start of a multi-line docstring explaining the machine learning pipeline stages.
+Line 2: MACHINE LEARNING PIPELINE: J.A.R.V.I.S. (ADA) -> Title of the machine learning pipeline.
+Line 3: ------------------------------------------- -> Decorative separator for the docstring header.
+Line 4: 1. DATA ACQUISITION: Real-time audio capture via 'sounddevice' and 'SpeechRecognition'. -> Description of the data acquisition phase.
+Line 5: 2. PREPROCESSING: Audio normalization, noise thresholding, and STT (Speech-to-Text) conversion. -> Description of the preprocessing phase.
+Line 6: 3. FEATURE ENGINEERING: Transformation of natural language strings into structured JSON intent schemas. -> Description of the feature engineering phase.
+Line 7: 4. MODEL BUILDING: Supervised Machine Learning approach using Large Language Models (LLMs)  -> Description of the model building phase using LLMs.
+Line 8:    acting as a multi-class intent classifier (Random Forest/Decision Tree logic emulated via prompt engineering). -> Detail on how LLMs act as an intent classifier.
+Line 9: 5. MODEL EVALUATION: Continuous monitoring of Command Success Rate, Latency, and F1-score  -> Description of the model evaluation metrics.
+Line 10:    based on user feedback and execution accuracy. -> Context for the evaluation metrics.
+Line 11: """ -> End of the multi-line docstring.
+Line 12:  -> Empty line for readability.
+Line 13: import os -> Imports the 'os' module for operating system interactions.
+Line 14: import time -> Imports the 'time' module for time-related functions.
+Line 15: import datetime -> Imports the 'datetime' module for date and time handling.
+Line 16: import threading -> Imports the 'threading' module to run tasks in parallel.
+Line 17: import tkinter as tk -> Imports 'tkinter' for creating the graphical user interface.
+Line 18: from tkinter import ttk -> Imports themed widgets from 'tkinter'.
+Line 19: import numpy as np -> Imports 'numpy' for numerical and array operations.
+Line 20: import sounddevice as sd -> Imports 'sounddevice' for audio recording and playback.
+Line 21: import speech_recognition as sr -> Imports 'speech_recognition' to convert speech into text.
+Line 22: import pyttsx3 -> Imports 'pyttsx3' for offline text-to-speech conversion.
+Line 23: import pyautogui -> Imports 'pyautogui' for controlling mouse and keyboard programmatically.
+Line 24: import psutil -> Imports 'psutil' to retrieve system information (CPU, RAM).
+Line 25: from google import genai -> Imports the Google GenAI client for LLM interaction.
+Line 26: from dotenv import load_dotenv -> Imports 'load_dotenv' to load environment variables from a .env file.
+Line 27: from io import BytesIO -> Imports 'BytesIO' for handling binary data in memory.
+Line 28: import wave -> Imports the 'wave' module to read and write WAV audio files.
+Line 29: import re -> Imports 're' for regular expression operations.
+Line 30: import json -> Imports 'json' for parsing and generating JSON data.
+Line 31: import requests -> Imports 'requests' for making HTTP requests (used for Ollama).
+Line 32:  -> Empty line for readability.
+Line 33: # --- CONFIGURATION & ENV --- -> Comment section for configuration and environment setup.
+Line 34: load_dotenv() -> Loads environment variables from the `.env` file.
+Line 35: GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") -> Retrieves the Gemini API key from environment variables.
+Line 36: OLLAMA_MODEL = "llama3.2:3b" -> Sets the default model name for local Ollama fallback.
+Line 37:  -> Empty line for readability.
+Line 38: if "GOOGLE_API_KEY" in os.environ: -> Checks if 'GOOGLE_API_KEY' exists in the environment.
+Line 39:     del os.environ["GOOGLE_API_KEY"] -> Deletes 'GOOGLE_API_KEY' to avoid potential conflicts with the GenAI client.
+Line 40:  -> Empty line for readability.
+Line 41: client = genai.Client(api_key=GEMINI_API_KEY) -> Initializes the Google GenAI client with the provided API key.
+Line 42:  -> Empty line for readability.
+Line 43: # --- JARVIS THEME CONSTANTS --- -> Comment section for UI theme constants.
+Line 44: BG_COLOR = "#000000"      # Deep Space Black -> Defines the background color for the UI.
+Line 45: ACCENT_COLOR = "#00D1FF"  # Futuristic Cyber Blue -> Defines the primary accent color for the UI.
+Line 46: TEXT_COLOR = "#FFFFFF"    # Pure White -> Defines the text color for the UI.
+Line 47: DIM_COLOR = "#003366"     # Dark Navy for Depth -> Defines a secondary, darker accent color.
+Line 48:  -> Empty line for readability.
+Line 49: # --- TTS ENGINE --- -> Comment section for text-to-speech engine initialization.
+Line 50: engine = pyttsx3.init() -> Initializes the pyttsx3 text-to-speech engine.
+Line 51: voices = engine.getProperty('voices') -> Retrieves the list of available voices.
+Line 52: engine.setProperty('voice', voices[0].id) -> Sets the engine to use the first available voice.
+Line 53: engine.setProperty('rate', 200) -> Sets the speaking speed of the TTS engine.
+Line 54:  -> Empty line for readability.
+Line 55: def speak(text, ui=None): -> Defines the function to handle speech and UI log updates.
+Line 56:     if ui: ui.update_log(f"JARVIS: {text}") -> Updates the UI log with the spoken text if a UI instance is provided.
+Line 57:     print(f"JARVIS: {text}") -> Prints the spoken text to the console.
+Line 58:  -> Empty line for readability.
+Line 59:     def _tts_worker(): -> Defines an internal worker function for asynchronous TTS.
+Line 60:         try: -> Start of a try-except block to catch TTS errors.
+Line 61:             # Short sleep to let any existing audio streams close -> Comment explaining the delay.
+Line 62:             time.sleep(0.1) -> Pauses briefly before starting a new TTS instance.
+Line 63:             temp_engine = pyttsx3.init('sapi5') -> Initializes a temporary SAPI5 engine for the thread.
+Line 64:             temp_engine.setProperty('rate', 190) -> Sets the rate for the temporary engine.
+Line 65:             temp_engine.say(text) -> Queues the text to be spoken.
+Line 66:             temp_engine.runAndWait() -> Blocks until the text is fully spoken.
+Line 67:             temp_engine.stop() -> Stops the temporary engine.
+Line 68:             # Delays to prevent audio driver collisions -> Comment explaining the delay.
+Line 69:             time.sleep(0.1) -> Pauses briefly after speaking.
+Line 70:         except Exception as e: -> Catches any errors during TTS processing.
+Line 71:             print(f"TTS Thread Error: {e}") -> Prints the error to the console.
+Line 72:  -> Empty line for readability.
+Line 73:     # Fire and forget the voice so it doesn't block the logic -> Comment explaining thread usage.
+Line 74:     threading.Thread(target=_tts_worker, daemon=True).start() -> Starts the TTS worker in a background thread.
+Line 75:  -> Empty line for readability.
+Line 76: # --- JARVIS UI CLASS --- -> Comment section for the UI class definition.
+Line 77: class JarvisUI: -> Defines the class for the J.A.R.V.I.S. interface.
+Line 78:     def __init__(self): -> The constructor for initializing the UI.
+Line 79:         self.root = tk.Tk() -> Creates the main Tkinter window.
+Line 80:         self.root.title("J.A.R.V.I.S. INTERFACE") -> Sets the window title.
+Line 81:         self.root.geometry("650x450") -> Sets the window dimensions.
+Line 82:         self.root.configure(bg=BG_COLOR) -> Sets the background color of the main window.
+Line 83:         self.root.attributes("-topmost", True) -> Keeps the window on top of all other windows.
+Line 84:         self.root.attributes("-alpha", 0.95) -> Sets the transparency level of the window.
+Line 85:          -> Indented empty line.
+Line 86:         # --- Header --- -> Comment for the header section.
+Line 87:         self.header = tk.Label(self.root, text="JUST A RATHER VERY INTELLIGENT SYSTEM",  -> Creates a label for the system's full name.
+Line 88:                               font=("Consolas", 10, "bold"), bg=BG_COLOR, fg=ACCENT_COLOR) -> Configures fonts and colors for the header label.
+Line 89:         self.header.pack(pady=5) -> Positions the header label in the window with padding.
+Line 90:          -> Indented empty line.
+Line 91:         # --- Main Visualizer --- -> Comment for the visualizer section.
+Line 92:         self.canvas = tk.Canvas(self.root, width=200, height=200, bg=BG_COLOR, highlightthickness=0) -> Creates a canvas for drawing visual elements.
+Line 93:         self.canvas.pack(pady=5) -> Positions the canvas in the window.
+Line 94:         self.arc = self.canvas.create_oval(10, 10, 190, 190, outline=ACCENT_COLOR, width=2) -> Draws the outer circular ring (arc).
+Line 95:         self.inner_arc = self.canvas.create_oval(50, 50, 150, 150, outline=DIM_COLOR, width=1) -> Draws the inner circular ring.
+Line 96:         self.status_text = self.canvas.create_text(100, 100, text="STANDBY", fill=ACCENT_COLOR, font=("Consolas", 12, "bold")) -> Creates the status text in the center of the rings.
+Line 97:          -> Indented empty line.
+Line 98:         # --- Audio Level Bar --- -> Comment for the audio level bar section.
+Line 99:         self.vol_frame = tk.Frame(self.root, bg=DIM_COLOR, width=200, height=5) -> Creates a background frame for the volume bar.
+Line 100:         self.vol_frame.pack(pady=5) -> Positions the volume frame.
+Line 101:         self.vol_bar = tk.Frame(self.vol_frame, bg=ACCENT_COLOR, width=0, height=5) -> Creates the active part of the volume bar.
+Line 102:         self.vol_bar.place(x=0, y=0) -> Places the volume bar inside its frame.
+Line 103:  -> Empty line for readability.
+Line 104:         # --- System Stats --- -> Comment for the system stats section.
+Line 105:         self.stats_frame = tk.Frame(self.root, bg=BG_COLOR) -> Creates a frame to hold system statistics.
+Line 106:         self.stats_frame.pack(side="left", padx=20, fill="y") -> Positions the stats frame to the left side.
+Line 107:          -> Indented empty line.
+Line 108:         self.cpu_label = tk.Label(self.stats_frame, text="CPU: 0%", font=("Consolas", 9), bg=BG_COLOR, fg=ACCENT_COLOR) -> Label for CPU usage.
+Line 109:         self.cpu_label.pack(anchor="w") -> Aligns the CPU label to the west (left).
+Line 110:         self.ram_label = tk.Label(self.stats_frame, text="RAM: 0%", font=("Consolas", 9), bg=BG_COLOR, fg=ACCENT_COLOR) -> Label for RAM usage.
+Line 111:         self.ram_label.pack(anchor="w") -> Aligns the RAM label to the west (left).
+Line 112:         self.time_label = tk.Label(self.stats_frame, text="00:00:00", font=("Consolas", 12, "bold"), bg=BG_COLOR, fg=ACCENT_COLOR) -> Label for displaying the current time.
+Line 113:         self.time_label.pack(anchor="w", pady=10) -> Positions the time label with vertical padding.
+Line 114:  -> Empty line for readability.
+Line 115:         # --- Activity Log --- -> Comment for the activity log section.
+Line 116:         self.log_box = tk.Text(self.root, height=15, width=45, bg=BG_COLOR, fg=TEXT_COLOR,  -> Creates a text widget for logging system activity.
+Line 117:                               font=("Consolas", 8), borderwidth=1, relief="flat", insertbackground=ACCENT_COLOR) -> Configures the look and feel of the log box.
+Line 118:         self.log_box.pack(side="right", padx=10, pady=10) -> Positions the log box to the right side.
+Line 119:          -> Indented empty line.
+Line 120:         self.update_stats_loop() -> Starts the recursive loop for updating system statistics.
+Line 121:          -> Indented empty line.
+Line 122:     def update_status(self, text, color=ACCENT_COLOR): -> Method to update the central status text and arc color.
+Line 123:         self.canvas.itemconfig(self.status_text, text=text, fill=color) -> Updates the text and color of the status display.
+Line 124:         self.canvas.itemconfig(self.arc, outline=color) -> Updates the color of the outer arc.
+Line 125:         self.root.update() -> Forces the UI to refresh immediately.
+Line 126:  -> Empty line for readability.
+Line 127:     def update_log(self, text): -> Method to add a new entry to the UI activity log.
+Line 128:         timestamp = datetime.datetime.now().strftime("%H:%M:%S") -> Generates a timestamp for the log entry.
+Line 129:         self.log_box.insert(tk.END, f"[{timestamp}] {text}\n") -> Inserts the timestamped message at the end of the log.
+Line 130:         self.log_box.see(tk.END) -> Scrolls the log box to show the latest entry.
+Line 131:         self.root.update() -> Forces the UI to refresh immediately.
+Line 132:  -> Empty line for readability.
+Line 133:     def update_vol(self, level): -> Method to update the visual volume bar.
+Line 134:         # Level expected 0.0 to 1.0 -> Comment defining the expected input range.
+Line 135:         self.vol_bar.config(width=int(level * 200)) -> Scales the bar width based on the audio level.
+Line 136:         self.root.update() -> Forces the UI to refresh immediately.
+Line 137:  -> Empty line for readability.
+Line 138:     def update_stats_loop(self): -> Method that runs periodically to update system stats.
+Line 139:         # [INSTRUCTION: INSERT EDA VISUALIZATION HERE] -> Placeholder comment for exploratory data analysis visualization.
+Line 140:         # Plot a Distribution of CPU/RAM usage over time to identify system bottlenecks. -> Suggestion for future enhancement.
+Line 141:         cpu = psutil.cpu_percent() -> Gets the current CPU usage percentage.
+Line 142:         ram = psutil.virtual_memory().percent -> Gets the current RAM usage percentage.
+Line 143:         now = datetime.datetime.now().strftime("%H:%M:%S") -> Gets the current time as a string.
+Line 144:         self.cpu_label.config(text=f"CORE_LOAD: {cpu}%") -> Updates the CPU label text.
+Line 145:         self.ram_label.config(text=f"MEM_ALLOC: {ram}%") -> Updates the RAM label text.
+Line 146:         self.time_label.config(text=now) -> Updates the time label text.
+Line 147:         self.canvas.coords(self.inner_arc, 50+cpu/5, 50+cpu/5, 150-cpu/5, 150-cpu/5) -> Dynamically resizes the inner arc based on CPU load.
+Line 148:         self.root.after(1000, self.update_stats_loop) -> Schedules the next update in 1000 milliseconds (1 second).
+Line 149:  -> Empty line for readability.
+Line 150: # --- SYSTEM LOGIC --- -> Comment section for core system logic functions.
+Line 151: def clean_command(text): -> Defines a function to sanitize AI-generated responses.
+Line 152:     # [ACADEMIC REQUIREMENT: PREPROCESSING] -> Note indicating this fulfills an academic project requirement.
+Line 153:     """Strips AI filler and formatting from commands.""" -> Docstring for the clean_command function.
+Line 154:     text = text.strip().replace("`", "") -> Removes leading/trailing whitespace and backticks.
+Line 155:     text = re.sub(r'^\[|\]$', '', text) -> Removes brackets if they surround the text.
+Line 156:     text = re.sub(r'^(Command|Action|JARVIS|Intent|Result):\s*', '', text, flags=re.I) -> Removes common AI-added prefix labels using regex.
+Line 157:     return text.strip() -> Returns the final cleaned and stripped string.
+Line 158:  -> Empty line for readability.
+Line 159: def execute_local_command(cmd_dict, ui=None): -> Defines the function to execute logic based on JSON intent schemas.
+Line 160:     # [ACADEMIC REQUIREMENT: FEATURE ENGINEERING] -> Note indicating this fulfills an academic project requirement.
+Line 161:     """Execution logic for parsing Brain 2 (Local) JSON commands.""" -> Docstring for execute_local_command.
+Line 162:     try: -> Start of try-except block to handle execution errors.
+Line 163:         action = cmd_dict.get("action") -> Retrieves the requested action from the command dictionary.
+Line 164:          -> Indented empty line.
+Line 165:         # --- OPEN ACTION --- -> Comment for the 'open' command logic.
+Line 166:         if action == "open": -> Checks if the action is to open an application.
+Line 167:             target = cmd_dict.get("target", "").lower() -> Gets the target application name in lowercase.
+Line 168:             # Clean target (remove extensions AI might add) -> Comment for cleanup.
+Line 169:             target = target.replace(".exe", "").replace(".lnk", "").replace(".app", "").strip() -> Removes common file extensions.
+Line 170:             target = re.sub(r'\s+game$', '', target).strip() -> Removes the word 'game' if it's at the end of the target.
+Line 171:              -> Indented empty line.
+Line 172:             # Smart Map: Prefer Protocols (URI) over paths for higher success rate -> Comment explaining the strategy.
+Line 173:             apps = { -> A dictionary mapping friendly names to system commands or URI protocols.
+Line 174:                 "notepad": "notepad",  -> Map for Notepad.
+Line 175:                 "calculator": "calc",  -> Map for Calculator.
+Line 176:                 "chrome": "chrome", -> Map for Google Chrome.
+Line 177:                 "browser": "chrome",  -> Map for default browser.
+Line 178:                 "file explorer": "explorer",  -> Map for File Explorer.
+Line 179:                 "explorer": "explorer", -> Map for Explorer.
+Line 180:                 "task manager": "taskmgr",  -> Map for Task Manager.
+Line 181:                 "control panel": "control",  -> Map for Control Panel.
+Line 182:                 "whatsapp": "whatsapp:", -> Map for WhatsApp (using URI protocol).
+Line 183:                 "edge": "msedge",  -> Map for Microsoft Edge.
+Line 184:                 "vscode": "code",  -> Map for Visual Studio Code.
+Line 185:                 "visual studio code": "code", -> Alternate map for VS Code.
+Line 186:                 "spotify": "spotify:", -> Map for Spotify (using URI protocol).
+Line 187:                 "discord": "discord:", -> Map for Discord (using URI protocol).
+Line 188:                 "settings": "ms-settings:", -> Map for Windows Settings.
+Line 189:                 "youtube": "https://www.youtube.com",  -> Map for YouTube URL.
+Line 190:                 "google": "https://www.google.com", -> Map for Google Search URL.
+Line 191:                 "gmail": "https://mail.google.com", -> Map for Gmail URL.
+Line 192:                 "outlook": "outlookmail:", -> Map for Outlook.
+Line 193:                 "valorant": "valorant:", -> Map for Valorant.
+Line 194:                 "nfs": "NFS",  -> Map for Need for Speed.
+Line 195:                 "need for speed": "NFS" -> Alternate map for NFS.
+Line 196:             } -> End of the apps dictionary.
+Line 197:              -> Indented empty line.
+Line 198:             app_to_run = apps.get(target, target) -> Look up the app or use the original target if not found.
+Line 199:             speak(f"Sir, initializing {target} protocol.", ui) -> Vocal acknowledgment of the command.
+Line 200:              -> Indented empty line.
+Line 201:             # Execution Strategy -> Comment for the execution logic.
+Line 202:             if app_to_run.startswith("http"): -> Checks if the target is a web URL.
+Line 203:                 os.system(f'start {app_to_run}') -> Opens the URL in the default browser.
+Line 204:             elif ":" in app_to_run and not app_to_run[1] == ":": # It's a protocol like whatsapp: -> Checks if it's a URI protocol.
+Line 205:                 os.system(f'start {app_to_run}') -> Launches the app associated with the protocol.
+Line 206:             else: -> For standard local application names.
+Line 207:                 # Try running as a system command -> Comment for system command execution.
+Line 208:                 os.system(f'start "" "{app_to_run}"') -> Uses the Windows 'start' command to launch the app.
+Line 209:  -> Empty line for readability.
+Line 210:         # --- WRITE ACTION --- -> Comment for the 'write' command logic.
+Line 211:         elif action == "write": -> Checks if the action is to type text.
+Line 212:             content = cmd_dict.get("content", "") -> Gets the text content to be typed.
+Line 213:             speak("Sir, documenting the requested data.", ui) -> Vocal acknowledgment.
+Line 214:             time.sleep(0.5) -> Wait briefly before typing to ensure focus.
+Line 215:             pyautogui.write(content, interval=0.01) -> Programmatically types the text.
+Line 216:  -> Empty line for readability.
+Line 217:         # --- SYSTEM_INFO ACTION --- -> Comment for the 'system_info' command logic.
+Line 218:         elif action == "system_info": -> Checks if the action is to query system information.
+Line 219:             query = cmd_dict.get("query", "").lower() -> Gets the specific info requested.
+Line 220:             if "battery" in query: -> Checks if battery info was requested.
+Line 221:                 try: -> Start of try-except for sensors.
+Line 222:                     percent = psutil.sensors_battery().percent -> Retrieves battery percentage.
+Line 223:                     speak(f"Battery is at {percent}%", ui) -> Speaks the battery level.
+Line 224:                 except: speak("Battery sensors offline.", ui) -> Handles errors if battery info is unavailable.
+Line 225:             elif "time" in query: -> Checks if the current time was requested.
+Line 226:                 speak(f"The current time is {datetime.datetime.now().strftime('%H:%M')}", ui) -> Speaks the current time.
+Line 227:             elif "date" in query: -> Checks if the current date was requested.
+Line 228:                 speak(f"Today is {datetime.datetime.now().strftime('%A, %B %d, %Y')}", ui) -> Speaks the current date.
+Line 229:  -> Empty line for readability.
+Line 230:         # --- SHELL ACTION --- -> Comment for the 'shell' command logic.
+Line 231:         elif action == "shell": -> Checks if the action is to run a PowerShell command.
+Line 232:             command = cmd_dict.get("command", "") -> Gets the shell command.
+Line 233:             speak(f"Executing shell sequence, Sir.", ui) -> Vocal acknowledgment.
+Line 234:             os.system(f"powershell -Command {command}") -> Executes the command via PowerShell.
+Line 235:  -> Empty line for readability.
+Line 236:         # --- SAVE ACTION --- -> Comment for the 'save' command logic.
+Line 237:         elif action == "save": -> Checks if the action is to save a file.
+Line 238:             filename = cmd_dict.get("filename", "") -> Gets the filename if provided.
+Line 239:             speak(f"Archiving as {filename}.", ui) -> Vocal acknowledgment.
+Line 240:             pyautogui.hotkey('ctrl', 's') -> Sends the Ctrl+S shortcut.
+Line 241:             time.sleep(1) -> Wait for the save dialog to appear.
+Line 242:             if filename: -> If a filename was specified.
+Line 243:                 pyautogui.write(filename) -> Types the filename into the dialog.
+Line 244:                 time.sleep(0.5) -> Wait briefly.
+Line 245:                 pyautogui.press('enter') -> Presses Enter to confirm save.
+Line 246:  -> Empty line for readability.
+Line 247:         # --- HOTKEY ACTION --- -> Comment for the 'hotkey' command logic.
+Line 248:         elif action == "hotkey": -> Checks if the action is to press a keyboard shortcut.
+Line 249:             keys = cmd_dict.get("keys", "").lower().split('+') -> Splits the shortcut string into individual keys.
+Line 250:             speak(f"Executing hotkey sequence, Sir.", ui) -> Vocal acknowledgment.
+Line 251:             pyautogui.hotkey(*keys) -> Sends the hotkey combination.
+Line 252:          -> Indented empty line.
+Line 253:     except Exception as e: -> Catches any errors during local command execution.
+Line 254:         if ui: ui.update_log(f"LOCAL_EXEC_ERROR: {str(e)}") -> Logs the error to the UI.
+Line 255:  -> Empty line for readability.
+Line 256: def ollama_brain(prompt, ui=None): -> Defines the fallback function for local LLM processing via Ollama.
+Line 257:     """Fallback Local Brain using Ollama.""" -> Docstring for ollama_brain.
+Line 258:     url = "http://localhost:11434/api/generate" -> The local endpoint for the Ollama API.
+Line 259:     payload = { -> The JSON payload for the Ollama request.
+Line 260:         "model": OLLAMA_MODEL, -> Specifies the model to use.
+Line 261:         "prompt": prompt, -> The prompt to send.
+Line 262:         "stream": False -> Disables streaming for a single complete response.
+Line 263:     } -> End of payload dictionary.
+Line 264:     try: -> Start of try-except for the network request.
+Line 265:         response = requests.post(url, json=payload, timeout=15) -> Sends the POST request to Ollama.
+Line 266:         response.raise_for_status() -> Raises an error for unsuccessful status codes.
+Line 267:         return response.json().get("response", "") -> Returns the text response from Ollama.
+Line 268:     except Exception as e: -> Catches network or API errors.
+Line 269:         if ui: ui.update_log(f"OLLAMA_ERROR: {str(e)}") -> Logs the error to the UI.
+Line 270:         return None -> Returns None if the request failed.
+Line 271:  -> Empty line for readability.
+Line 272: # [ACADEMIC REQUIREMENT: MODEL BUILDING] -> Note indicating this fulfills an academic project requirement.
+Line 273: # This function serves as the Inference Engine. It classifies user intent by mapping natural  -> Comment explaining the role of the function.
+Line 274: # language input to a structured JSON command schema using Large Language Models. -> Continued explanation.
+Line 275: def process_request(user_input, ui=None): -> Defines the function to process natural language input.
+Line 276:     # [INSTRUCTION: INSERT EDA VISUALIZATION HERE] -> Placeholder for EDA visualization instruction.
+Line 277:     # Generate a Correlation Matrix between 'User Input Length' and 'Model Latency'  -> Suggestion for efficiency analysis.
+Line 278:     # to analyze the efficiency of the intent classification pipeline. -> Continued suggestion.
+Line 279:     if ui: ui.update_status("THINKING", ACCENT_COLOR) -> Updates the UI status to indicate processing.
+Line 280:      -> Indented empty line.
+Line 281:     intent_prompt = f""" -> Starts a multi-line f-string for the AI prompt.
+Line 282:     ROLE: You are J.A.R.V.I.S., a Hybrid Intelligence System. -> Sets the persona for the LLM.
+Line 283:     Analyze user request: "{user_input}" -> Includes the user's spoken input in the prompt.
+Line 284:  -> Empty line in prompt.
+Line 285:     PROTOCOL: -> Section defining response rules.
+Line 286:     For local tasks, output a "LOCAL_EXEC" tag with a JSON command. -> Instruction for command formatting.
+Line 287:     COMMAND SCHEMA: -> Section showing examples of the JSON schema.
+Line 288:     - {{"action": "open", "target": "notepad"}} -> Example of open command.
+Line 289:     - {{"action": "write", "content": "text"}} -> Example of write command.
+Line 290:     - {{"action": "system_info", "query": "battery|time|date"}} -> Example of system info command.
+Line 291:     - {{"action": "shell", "command": "powershell_cmd"}} -> Example of shell command.
+Line 292:     - {{"action": "save", "filename": "name"}} -> Example of save command.
+Line 293:     - {{"action": "hotkey", "keys": "ctrl+s"}} -> Example of hotkey command.
+Line 294:  -> Empty line in prompt.
+Line 295:     BEHAVIOR: -> Section defining conversational rules.
+Line 296:     1. Provide a professional CHAT response first. -> Rule for conversational response.
+Line 297:     2. Output LOCAL_EXEC tags for actions. -> Rule for command output.
+Line 298:     3. Refer to the user as 'Sir'. -> Rule for address.
+Line 299:     4. You can combine multiple actions. -> Rule for multi-step tasks.
+Line 300:  -> Empty line in prompt.
+Line 301:     Example: "open notepad and write hello then save it" -> Example input for the model.
+Line 302:     CHAT Of course, Sir. I am preparing the document now. -> Example chat response.
+Line 303:     LOCAL_EXEC: {{"action": "open", "target": "notepad"}} -> Example tag output 1.
+Line 304:     LOCAL_EXEC: {{"action": "write", "content": "hello"}} -> Example tag output 2.
+Line 305:     LOCAL_EXEC: {{"action": "save", "filename": "document"}} -> Example tag output 3.
+Line 306:     """ -> End of the prompt string.
+Line 307:      -> Indented empty line.
+Line 308:     output = "" -> Initializes the output string.
+Line 309:     try: -> Start of try-except block for multi-brain logic.
+Line 310:         try: -> Inner try block for the primary brain.
+Line 311:             # Brain 1: Gemini Flash (Fastest) -> Comment for primary model.
+Line 312:             response = client.models.generate_content(model="gemini-flash-latest", contents=intent_prompt) -> Calls the Gemini Flash model.
+Line 313:             output = response.text.strip() -> Stores and cleans the response.
+Line 314:         except Exception as e: -> Catches errors from Brain 1 (like quota limits).
+Line 315:             if "429" in str(e) or "quota" in str(e).lower() or "connection" in str(e).lower(): -> Checks if error is related to quota or connectivity.
+Line 316:                 ui.update_log("FLASH OFFLINE. SWITCHING TO PRO BRAIN.") -> Logs the switch to the secondary brain.
+Line 317:                 try: -> Inner try block for Brain 2.
+Line 318:                     # Brain 2: Gemini Pro (Powerful) -> Comment for secondary model.
+Line 319:                     response = client.models.generate_content(model="gemini-pro-latest", contents=intent_prompt) -> Calls the Gemini Pro model.
+Line 320:                     output = response.text.strip() -> Stores the response.
+Line 321:                 except: -> Catches errors from Brain 2.
+Line 322:                     ui.update_log("CLOUD BRAINS OFFLINE. ACTIVATING LOCAL CORE (OLLAMA).") -> Logs the switch to local fallback.
+Line 323:                     output = ollama_brain(intent_prompt, ui) -> Calls the local Ollama model.
+Line 324:             else: raise e -> Rethrows the exception if it wasn't a quota/connection issue.
+Line 325:          -> Indented empty line.
+Line 326:         if not output: -> Checks if all brains failed to respond.
+Line 327:             ui.update_log("ALL BRAINS FAILED TO RESPOND.") -> Logs the total failure.
+Line 328:             return -> Exits the function.
+Line 329:  -> Empty line for readability.
+Line 330:         ui.update_log(f"BRAIN_RAW: {output[:100]}...") -> Logs a snippet of the raw response for debugging.
+Line 331:          -> Indented empty line.
+Line 332:         # Parse CHAT -> Comment for chat parsing logic.
+Line 333:         chat_match = re.search(r'CHAT\s+(.*?)($|\n|LOCAL_EXEC)', output, re.S | re.I) -> Uses regex to extract the chat portion of the response.
+Line 334:         if chat_match: -> If a chat response was found.
+Line 335:             speak(chat_match.group(1).strip(), ui) -> Speaks the chat response.
+Line 336:          -> Indented empty line.
+Line 337:         # Parse LOCAL_EXEC -> Comment for command parsing logic.
+Line 338:         exec_matches = re.findall(r'LOCAL_EXEC:\s*(\{.*?\})', output) -> Uses regex to find all command JSON strings.
+Line 339:         for match in exec_matches: -> Iterates through all found commands.
+Line 340:             try: -> Start of try block for JSON parsing.
+Line 341:                 cmd_dict = json.loads(match) -> Parses the command string into a dictionary.
+Line 342:                 execute_local_command(cmd_dict, ui) -> Executes the command.
+Line 343:             except: continue -> Skips malformed commands.
+Line 344:              -> Indented empty line.
+Line 345:     except Exception as e: -> Catches any errors in the processing pipeline.
+Line 346:         ui.update_log(f"BRAIN_ERROR: {str(e)}") -> Logs the error to the UI.
+Line 347:  -> Empty line for readability.
+Line 348: def capture_audio(duration=2, fs=44100, ui=None): -> Defines the function for low-level audio capture.
+Line 349:     # [ACADEMIC REQUIREMENT: PREPROCESSING] -> Note indicating this fulfills an academic project requirement.
+Line 350:     if ui: ui.update_status("LISTENING", TEXT_COLOR) -> Updates UI status to show it is listening.
+Line 351:      -> Indented empty line.
+Line 352:     chunk_size = 1024 -> Sets the size of each audio chunk.
+Line 353:     recording = [] -> Initializes a list to store audio chunks.
+Line 354:      -> Indented empty line.
+Line 355:     def callback(indata, frames, time, status): -> Defines a callback function for the audio stream.
+Line 356:         volume_norm = np.linalg.norm(indata)*10 -> Calculates the current volume level using numpy.
+Line 357:         if ui: ui.update_vol(min(volume_norm/100, 1.0)) -> Updates the UI volume bar.
+Line 358:         recording.append(indata.copy()) -> Appends a copy of the incoming audio data to the list.
+Line 359:  -> Empty line for readability.
+Line 360:     with sd.InputStream(samplerate=fs, channels=1, callback=callback, dtype='int16'): -> Opens an audio input stream using 'sounddevice'.
+Line 361:         sd.sleep(int(duration * 1000)) -> Records for the specified duration.
+Line 362:      -> Indented empty line.
+Line 363:     if ui: ui.update_vol(0) -> Resets the volume bar in the UI.
+Line 364:      -> Indented empty line.
+Line 365:     full_recording = np.concatenate(recording, axis=0) -> Joins all recorded chunks into a single array.
+Line 366:     buffer = BytesIO() -> Creates an in-memory byte buffer.
+Line 367:     with wave.open(buffer, 'wb') as wf: -> Opens a virtual WAV file in the buffer.
+Line 368:         wf.setnchannels(1) -> Configures for mono sound.
+Line 369:         wf.setsampwidth(2) -> Sets sample width to 16-bit (2 bytes).
+Line 370:         wf.setframerate(fs) -> Sets the sample rate.
+Line 371:         wf.writeframes(full_recording.tobytes()) -> Writes the audio data to the virtual file.
+Line 372:     buffer.seek(0) -> Rewinds the buffer to the beginning.
+Line 373:     return buffer -> Returns the buffer containing the audio file.
+Line 374:  -> Empty line for readability.
+Line 375: def listen(ui=None, duration=2): -> Defines the function to capture and recognize speech.
+Line 376:     # [ACADEMIC REQUIREMENT: PREPROCESSING] -> Note indicating this fulfills an academic project requirement.
+Line 377:     r = sr.Recognizer() -> Initializes the SpeechRecognition recognizer object.
+Line 378:     r.energy_threshold = 300 -> Sets the sensitivity level for audio capture.
+Line 379:      -> Indented empty line.
+Line 380:     audio_buffer = capture_audio(duration=duration, ui=ui) -> Calls capture_audio to get the raw recording.
+Line 381:     with sr.AudioFile(audio_buffer) as source: -> Treats the buffer as an audio source for recognition.
+Line 382:         audio_data = r.record(source) -> Reads the entire audio buffer.
+Line 383:     try: -> Start of try-except block for recognition.
+Line 384:         text = r.recognize_google(audio_data) -> Uses Google's online STT service to transcribe speech.
+Line 385:         if ui: ui.update_log(f"RECOGNIZED: {text}") -> Logs the recognized text to the UI.
+Line 386:         return text.lower() -> Returns the transcription in lowercase.
+Line 387:     except sr.UnknownValueError: -> Catches cases where speech was not understood.
+Line 388:         return "" -> Returns an empty string.
+Line 389:     except Exception as e: -> Catches other recognition errors (e.g., network issues).
+Line 390:         if ui: ui.update_log(f"LISTEN_ERROR: {str(e)[:20]}") -> Logs a snippet of the error to the UI.
+Line 391:         return "" -> Returns an empty string.
+Line 392:  -> Empty line for readability.
+Line 393: def main_loop(ui): -> Defines the primary background loop for system operation.
+Line 394:     speak("System online. Audio sensors calibrated. Sir.", ui) -> Initial greeting when the system starts.
+Line 395:     while True: -> Infinite loop to keep the system running.
+Line 396:         try: -> Start of try-except for the main loop.
+Line 397:             ui.update_status("STANDBY", ACCENT_COLOR) -> Sets UI status to standby while waiting for wake word.
+Line 398:             wake_check = listen(ui, duration=4) -> Listens for 4 seconds for a wake word.
+Line 399:              -> Indented empty line.
+Line 400:             if any(word in wake_check for word in ["jarvis", "wake up", "hey", "ada"]): -> Checks if any wake word was detected.
+Line 401:                 speak("At your service. Active mode engaged, Sir.", ui) -> Responds when activated.
+Line 402:                  -> Indented empty line.
+Line 403:                 consecutive_silence = 0 -> Counter for tracking silence periods in active mode.
+Line 404:                 while True: -> Inner loop for active interaction.
+Line 405:                     ui.update_status("ACTIVE", ACCENT_COLOR) -> Sets UI status to active.
+Line 406:                     command = listen(ui, duration=8) -> Listens for a command for up to 8 seconds.
+Line 407:                      -> Indented empty line.
+Line 408:                     if not command: -> If nothing was heard.
+Line 409:                         consecutive_silence += 1 -> Increment the silence counter.
+Line 410:                         if consecutive_silence >= 2: -> If two consecutive silent periods occur.
+Line 411:                             speak("Sir, I am returning to standby.", ui) -> Notify the user.
+Line 412:                             break -> Exit the active loop and return to standby.
+Line 413:                         continue -> Wait for the next command.
+Line 414:                      -> Indented empty line.
+Line 415:                     consecutive_silence = 0 -> Reset silence counter if a command was heard.
+Line 416:                      -> Indented empty line.
+Line 417:                     if any(stop_word in command for stop_word in ["thank you", "that is all", "goodbye", "go to sleep", "stop"]): -> Checks for deactivation commands.
+Line 418:                         speak("Of course, Sir. Standing by.", ui) -> Vocal acknowledgment.
+Line 419:                         break -> Exit the active loop.
+Line 420:                      -> Indented empty line.
+Line 421:                     process_request(command, ui) -> Send the command to the brain for processing and execution.
+Line 422:                     time.sleep(0.5) -> Brief pause between commands.
+Line 423:              -> Indented empty line.
+Line 424:             time.sleep(0.1) -> Small delay to prevent CPU hammering in standby.
+Line 425:         except Exception as e: -> Catches errors in the main logic loop.
+Line 426:             print(f"Loop Error: {e}") -> Prints the error to console.
+Line 427:             time.sleep(1) -> Wait before retrying if an error occurred.
+Line 428:  -> Empty line for readability.
+Line 429: if __name__ == "__main__": -> Standard entry point check for Python scripts.
+Line 430:     jarvis_ui = JarvisUI() -> Instantiates the UI class.
+Line 431:     logic_thread = threading.Thread(target=main_loop, args=(jarvis_ui,), daemon=True) -> Creates a daemon thread for the main logic.
+Line 432:     logic_thread.start() -> Starts the background logic thread.
+Line 433:     jarvis_ui.root.mainloop() -> Starts the Tkinter event loop to display the UI.
