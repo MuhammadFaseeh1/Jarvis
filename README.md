@@ -349,22 +349,6 @@ Contributions are welcome! Please feel free to:
 - Submit pull requests
 - Improve documentation
 
-## 📝 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## 👨‍💻 Author
-
-**Your Name** - [GitHub Profile](https://github.com/yourusername)
-
-## 📧 Support & Contact
-
-- **Issues**: Report on GitHub Issues
-- **Questions**: Check existing documentation in `SYSTEM_MANIFEST.md`
-- **Feature Requests**: Open a GitHub Discussion
-
----
-
 ## 🌟 Acknowledgments
 
 Built with:
