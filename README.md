@@ -361,5 +361,4 @@ Built with:
 
 **Ready to talk to JARVIS? Run `python ada.py` and say "Jarvis"!** 🎤
 #
-<img width="1311" height="598" alt="image" src="https://github.com/user-attachments/assets/56be3ae9-b3cb-47bd-bc81-f2374ad9c6ce" />
 
